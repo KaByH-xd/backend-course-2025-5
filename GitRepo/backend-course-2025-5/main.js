@@ -23,7 +23,7 @@ program
 
     const cacheDir = path.resolve(opts.cache);
 
-    // створюємо директорію (якщо нема)
+    
     if (!fsSync.existsSync(cacheDir)) {
       fsSync.mkdirSync(cacheDir, { recursive: true });
     }
@@ -69,25 +69,25 @@ program
 
         const filepath = filePathForCode(code);
 
-        // GET
+        
         if (req.method === 'GET') {
           try {
-            // спочатку перевірка кешу
+            
             const data = await fs.readFile(filepath);
             res.writeHead(200, { 'Content-Type': 'image/jpeg' });
             res.end(data);
           } catch (err) {
             if (err.code === 'ENOENT') {
-              // якщо немає у кеші — запитуємо http.cat
+              
               try {
                 const response = await superagent.get(`https://http.cat/${code}`).responseType('blob');
                 const buffer = Buffer.from(response.body);
-                // зберігаємо у кеш
+                
                 await fs.writeFile(filepath, buffer);
                 res.writeHead(200, { 'Content-Type': 'image/jpeg' });
                 res.end(buffer);
               } catch (fetchErr) {
-                // якщо помилка при запиті до http.cat
+                
                 res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
                 res.end('404 Not Found\n');
               }
@@ -100,7 +100,7 @@ program
           return;
         }
 
-        // PUT
+
         if (req.method === 'PUT') {
           try {
             const body = await readRequestBody(req);
@@ -115,7 +115,6 @@ program
           return;
         }
 
-        // DELETE
         if (req.method === 'DELETE') {
           try {
             await fs.unlink(filepath);
@@ -134,7 +133,7 @@ program
           return;
         }
 
-        // Інші методи — 405
+
         res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('405 Method Not Allowed\n');
 
