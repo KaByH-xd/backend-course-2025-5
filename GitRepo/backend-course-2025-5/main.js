@@ -3,6 +3,7 @@ const http = require('http');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
+const superagent = require('superagent');
 
 program
   .requiredOption('-h, --host <host>', "серверний хост (обов'язковий)")
@@ -27,14 +28,13 @@ program
       fsSync.mkdirSync(cacheDir, { recursive: true });
     }
 
-    // --- допоміжні функції ---
     function parseCodeFromUrl(url) {
       if (!url) return null;
-      const clean = url.split('?')[0]; // прибрати query
-      const parts = clean.split('/').filter(Boolean); // видалити пусті
+      const clean = url.split('?')[0];
+      const parts = clean.split('/').filter(Boolean);
       if (parts.length === 0) return null;
       const code = parts[0];
-      if (!/^\d+$/.test(code)) return null; // лиш цифри
+      if (!/^\d+$/.test(code)) return null;
       return code;
     }
 
@@ -53,7 +53,6 @@ program
 
     const server = http.createServer(async (req, res) => {
       try {
-        // зберегти стару поведінку для '/' і '/cache'
         if (req.method === 'GET' && (req.url === '/' || req.url === '/cache')) {
           const files = await fs.readdir(cacheDir);
           res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -61,10 +60,8 @@ program
           return;
         }
 
-        // Обробка шляхів виду /<code>
         const code = parseCodeFromUrl(req.url);
         if (!code) {
-          // якщо це не '/' або '/cache' і не містить коду — повертаємо 400 або 404
           res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
           res.end('400 Bad Request: use /<code> (e.g. /200) or /cache\n');
           return;
@@ -72,16 +69,28 @@ program
 
         const filepath = filePathForCode(code);
 
-        // GET - повернути картинку
+        // GET
         if (req.method === 'GET') {
           try {
-            const data = await fs.readFile(filepath); // fs.promises.readFile
+            // спочатку перевірка кешу
+            const data = await fs.readFile(filepath);
             res.writeHead(200, { 'Content-Type': 'image/jpeg' });
             res.end(data);
           } catch (err) {
             if (err.code === 'ENOENT') {
-              res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-              res.end('404 Not Found\n');
+              // якщо немає у кеші — запитуємо http.cat
+              try {
+                const response = await superagent.get(`https://http.cat/${code}`).responseType('blob');
+                const buffer = Buffer.from(response.body);
+                // зберігаємо у кеш
+                await fs.writeFile(filepath, buffer);
+                res.writeHead(200, { 'Content-Type': 'image/jpeg' });
+                res.end(buffer);
+              } catch (fetchErr) {
+                // якщо помилка при запиті до http.cat
+                res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('404 Not Found\n');
+              }
             } else {
               console.error('GET error:', err);
               res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -91,11 +100,11 @@ program
           return;
         }
 
-        // PUT - записати картинку в кеш (тіло запиту = байти картинки)
+        // PUT
         if (req.method === 'PUT') {
           try {
             const body = await readRequestBody(req);
-            await fs.writeFile(filepath, body); // fs.promises.writeFile
+            await fs.writeFile(filepath, body);
             res.writeHead(201, { 'Content-Type': 'text/plain; charset=utf-8' });
             res.end('201 Created\n');
           } catch (err) {
@@ -106,7 +115,7 @@ program
           return;
         }
 
-        // DELETE - видалити картинку
+        // DELETE
         if (req.method === 'DELETE') {
           try {
             await fs.unlink(filepath);
@@ -125,9 +134,10 @@ program
           return;
         }
 
-        // Інші методи — 405 Method Not Allowed
+        // Інші методи — 405
         res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('405 Method Not Allowed\n');
+
       } catch (err) {
         console.error('Помилка при обробці запиту:', err);
         res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
