@@ -1,0 +1,4 @@
+curl -i -X PUT "http://127.0.0.1:3000/200" -H "Content-Type: image/jpeg" --data-binary "@example.jpg"
+curl -i "http://127.0.0.1:3000/200" --output downloaded_200.jpg
+curl -i -X DELETE "http://127.0.0.1:3000/200"
+curl -i "http://127.0.0.1:3000/999"
