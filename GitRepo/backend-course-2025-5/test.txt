@@ -1,4 +1,4 @@
-curl -i -X PUT "http://127.0.0.1:3000/200" -H "Content-Type: image/jpeg" --data-binary "@example.jpg"
-curl -i "http://127.0.0.1:3000/200" --output downloaded_200.jpg
-curl -i -X DELETE "http://127.0.0.1:3000/200"
-curl -i "http://127.0.0.1:3000/999"
+curl.exe -i -X PUT "http://127.0.0.1:3000/201" -H "Content-Type: image/webp" --data-binary "@kbh.webp"
+curl.exe -i "http://127.0.0.1:3000/200" --output kbh.webp
+curl.exe -i -X DELETE "http://127.0.0.1:3000/200"
+curl.exe -i "http://127.0.0.1:3000/999"
